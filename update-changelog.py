@@ -39,7 +39,7 @@ def update_changelog(version, branch_name):
     
     print(f"Changelog updated for version {version}")
 
-if name == "__main__":
+if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python update_changelog.py <version> <branch_name>")
         sys.exit(1)
