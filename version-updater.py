@@ -42,5 +42,5 @@ def main():
     
     print(new_version)
 
-if name == "__main__":
+if __name__== "__main__":
     main()
