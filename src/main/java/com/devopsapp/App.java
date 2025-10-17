@@ -1,4 +1,4 @@
-package com.devopsapp;
+package main.java.com.devopsapp;
 
 import static spark.Spark.*;
 
@@ -15,7 +15,7 @@ public class App {
                 System.err.println("Version file not found, using default");
             }
             
-            return "DevOps Java Application v" + version + " - Running successfully!";
+            return "DevOps Java Application v" + version + " - Docker fix test!";
         });
         
         get("/health", (req, res) -> {
