@@ -2,8 +2,8 @@ FROM openjdk:11-jre-slim
 
 WORKDIR /app
 
-# Копируем JAR файл (имя должно совпадать с pom.xml)
-COPY target/pipeline-manager-1.0.0.jar app.jar
+# Копируем JAR файл (используем wildcard)
+COPY target/*.jar app.jar
 
 EXPOSE 8080
 
