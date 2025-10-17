@@ -15,7 +15,7 @@ public class App {
                 System.err.println("Version file not found, using default");
             }
             
-            return "DevOps Java Application v" + version + " - Docker fix test!";
+            return "DevOps Java Application v" + version + " - Version Update Test!";
         });
         
         get("/health", (req, res) -> {
