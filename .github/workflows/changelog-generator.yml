@@ -1,0 +1,50 @@
+name: Update Changelog
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  changelog:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Read version
+        id: get_version
+        run: echo "version=$(cat version)" >> $GITHUB_OUTPUT
+
+      - name: Update changelog
+        run: python update-changelog.py "${{ steps.get_version.outputs.version }}" "${{ github.event.pull_request.head.ref }}"
+
+      - name: Commit changelog
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git add changelog.md
+          git commit -m "Update changelog for version ${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+          git push
+
+      - name: Add changelog label
+        uses: actions-ecosystem/action-add-labels@v1
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: changelog
+
+      - name: Upload changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: changelog.md

@@ -1,0 +1,109 @@
+name: Publish to DockerHub
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '**/Dockerfile'
+      - 'version'
+      - 'pom.xml'
+      - 'src/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Read version (prepend v)
+        id: vars
+        shell: bash
+        run: |
+          RAW=$(cat version | tr -d '\r\n')
+          echo "VERSION=$RAW" >> $GITHUB_OUTPUT
+          echo "VTAG=v$RAW"    >> $GITHUB_OUTPUT
+          echo "Version: $RAW  Tag: v$RAW"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/devops-java-app:${{ steps.vars.outputs.VTAG }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/devops-java-app:latest
+
+      - name: Label PR with 'dockerhub' (if exists)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha
+            });
+            if (prs.length > 0) {
+              const pr = prs[0];
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['dockerhub']
+              });
+              core.info(`Labeled PR #${pr.number} with 'dockerhub'.`);
+            } else {
+              core.info('No PR associated with this commit. Skipping label.');
+            }
+
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date '+%Y.%m.%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            *Новый выпуск Java приложения*
+            *Проект:* DevOps Java Pipeline
+            *Версия:* ${{ steps.vars.outputs.VTAG }}
+            *Дата:* ${{ steps.date.outputs.DATE }}
+            *Автор:* ${{ github.actor }}
+            
+            *DockerHub*
+            *Репозиторий:* ${{ secrets.DOCKERHUB_USERNAME }}/devops-java-app
+            *Тег:* ${{ steps.vars.outputs.VTAG }}
+            *Полное имя:* ${{ secrets.DOCKERHUB_USERNAME }}/devops-java-app:${{ steps.vars.outputs.VTAG }}
+
+      - name: Send changelog file
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          document: changelog.md
